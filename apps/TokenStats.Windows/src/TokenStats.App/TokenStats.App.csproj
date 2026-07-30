@@ -25,5 +25,8 @@
   <ItemGroup>
     <ProjectReference Include="..\TokenStats.Core\TokenStats.Core.csproj" />
     <Resource Include="Assets\TokenStats.ico" />
+    <EmbeddedResource
+      Include="Themes\default.yaml"
+      LogicalName="TokenStats.App.Themes.default.yaml" />
   </ItemGroup>
 </Project>

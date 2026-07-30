@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
@@ -58,6 +59,25 @@ public partial class SettingsWindow : Window
         {
             RenderAccounts();
             var appearance = _settings.Appearance;
+            var activeTheme = _settings.ThemePackages.Resolve(
+                appearance.ThemeId);
+            ThemeCombo.ItemsSource = _settings.ThemePackages.Themes;
+            ThemeCombo.SelectedValue = activeTheme.Id;
+            ThemeFolderText.Text =
+                $"YAML folder: {_settings.ThemePackages.ThemesDirectory}";
+            var themeErrors = _settings.ThemePackages.Errors;
+            ThemeErrorText.Visibility = themeErrors.Count == 0
+                ? Visibility.Collapsed
+                : Visibility.Visible;
+            ThemeErrorText.Text = themeErrors.Count == 0
+                ? string.Empty
+                : $"{themeErrors.Count} theme package(s) could not be loaded.";
+            ThemeErrorText.ToolTip = themeErrors.Count == 0
+                ? null
+                : string.Join(
+                    Environment.NewLine,
+                    themeErrors.Select(error =>
+                        $"{Path.GetFileName(error.Source)}: {error.Message}"));
             PrimaryAgentCombo.SelectedValue = appearance.PrimaryAgent;
             DialStyle.IsChecked = appearance.GaugeStyle == GaugeStyle.Dial;
             RingStyle.IsChecked = appearance.GaugeStyle == GaugeStyle.Ring;
@@ -358,6 +378,94 @@ public partial class SettingsWindow : Window
         AboutPage.Visibility = selected == "about"
             ? Visibility.Visible
             : Visibility.Collapsed;
+    }
+
+    private void ThemeCombo_OnSelectionChanged(
+        object sender,
+        SelectionChangedEventArgs eventArgs)
+    {
+        if (_isRendering ||
+            ThemeCombo.SelectedValue is not string themeId ||
+            string.Equals(
+                themeId,
+                _settings.Appearance.ThemeId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        if (TrySaveDisplayPreferences(
+                _settings.Appearance with { ThemeId = themeId }))
+        {
+            ApplySelectedTheme();
+        }
+    }
+
+    private void ReloadThemes_OnClick(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        _settings.ThemePackages.Reload();
+        Render();
+        ApplySelectedTheme(force: true);
+    }
+
+    private void OpenThemesFolder_OnClick(
+        object sender,
+        RoutedEventArgs eventArgs)
+    {
+        try
+        {
+            Directory.CreateDirectory(_settings.ThemePackages.ThemesDirectory);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = _settings.ThemePackages.ThemesDirectory,
+                UseShellExecute = true,
+            });
+        }
+        catch (Exception exception) when (
+            exception is IOException or
+            UnauthorizedAccessException or
+            InvalidOperationException or
+            System.ComponentModel.Win32Exception)
+        {
+            MessageBox.Show(
+                this,
+                $"Could not open the theme folder.\n\n{exception.Message}",
+                "TokenStats",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+        }
+    }
+
+    private void ApplySelectedTheme(bool force = false)
+    {
+        if (System.Windows.Application.Current is not { } application)
+        {
+            return;
+        }
+
+        var package = _settings.ThemePackages.Resolve(
+            _settings.Appearance.ThemeId);
+        var theme = SystemParameters.HighContrast
+            ? WindowsAppTheme.HighContrast
+            : WindowsThemeService.CurrentTheme == WindowsAppTheme.HighContrast
+                ? WindowsThemeService.DetectSystemTheme()
+                : WindowsThemeService.CurrentTheme;
+        if (!force &&
+            WindowsThemeService.CurrentTheme == theme &&
+            string.Equals(
+                WindowsThemeService.CurrentThemePackageId,
+                package.Id,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        WindowsThemeService.Apply(
+            application.Resources,
+            theme,
+            package);
     }
 
     private void PrimaryAgentCombo_OnSelectionChanged(

@@ -19,6 +19,7 @@ public partial class App : System.Windows.Application
     private SettingsWindow? _settingsWindow;
     private OnboardingWindow? _onboardingWindow;
     private TrayIconService? _tray;
+    private string? _observedThemeId;
     private bool _isQuitting;
 
     protected override async void OnStartup(StartupEventArgs eventArgs)
@@ -33,11 +34,12 @@ public partial class App : System.Windows.Application
             return;
         }
 
+        _settings = new AppSettingsStore();
+        _settings.Changed += Settings_OnChanged;
         ApplySystemTheme();
         SystemEvents.UserPreferenceChanged += SystemEvents_OnUserPreferenceChanged;
         SystemEvents.PowerModeChanged += SystemEvents_OnPowerModeChanged;
 
-        _settings = new AppSettingsStore();
         _httpClient = new HttpClient();
         var oauthClient = new OAuthHttpClient(_httpClient);
         var claudeAuth = new ClaudeAuthSession(
@@ -109,6 +111,11 @@ public partial class App : System.Windows.Application
     {
         SystemEvents.UserPreferenceChanged -= SystemEvents_OnUserPreferenceChanged;
         SystemEvents.PowerModeChanged -= SystemEvents_OnPowerModeChanged;
+        if (_settings is not null)
+        {
+            _settings.Changed -= Settings_OnChanged;
+        }
+
         _tray?.Dispose();
         _httpClient?.Dispose();
         _singleInstance?.Dispose();
@@ -295,6 +302,33 @@ public partial class App : System.Windows.Application
         }
     }
 
+    private void Settings_OnChanged(object? sender, EventArgs eventArgs)
+    {
+        if (_settings is null)
+        {
+            return;
+        }
+
+        var themeId = _settings.Appearance.ThemeId;
+        if (string.Equals(
+                _observedThemeId,
+                themeId,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _observedThemeId = themeId;
+        if (Dispatcher.CheckAccess())
+        {
+            ApplySystemTheme();
+        }
+        else
+        {
+            Dispatcher.BeginInvoke(ApplySystemTheme);
+        }
+    }
+
     private void SystemEvents_OnUserPreferenceChanged(
         object sender,
         UserPreferenceChangedEventArgs eventArgs)
@@ -308,6 +342,16 @@ public partial class App : System.Windows.Application
         }
     }
 
-    private void ApplySystemTheme() =>
-        WindowsThemeService.ApplySystemTheme(Resources);
+    private void ApplySystemTheme()
+    {
+        if (_settings is null)
+        {
+            return;
+        }
+
+        _observedThemeId = _settings.Appearance.ThemeId;
+        WindowsThemeService.ApplySystemTheme(
+            Resources,
+            _settings.ThemePackages.Resolve(_settings.Appearance.ThemeId));
+    }
 }

@@ -2,31 +2,6 @@
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
-    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="#FFF9FAFB" />
-    <SolidColorBrush x:Key="CardBackgroundBrush" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="SubtleBackgroundBrush" Color="#FFF1F3F5" />
-    <SolidColorBrush x:Key="ControlBackgroundBrush" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="ControlHoverBrush" Color="#FFEAEDF0" />
-    <SolidColorBrush x:Key="ControlPressedBrush" Color="#FFDDE2E7" />
-    <SolidColorBrush x:Key="PrimaryTextBrush" Color="#FF17191C" />
-    <SolidColorBrush x:Key="SecondaryTextBrush" Color="#FF62676F" />
-    <SolidColorBrush x:Key="DisabledTextBrush" Color="#FF989DA4" />
-    <SolidColorBrush x:Key="BorderBrush" Color="#FFD9DCE1" />
-    <SolidColorBrush x:Key="AccentBrush" Color="#FF08866D" />
-    <SolidColorBrush x:Key="AccentForegroundBrush" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="AccentSoftBrush" Color="#1F08866D" />
-    <SolidColorBrush x:Key="SelectionBrush" Color="#FF08866D" />
-    <SolidColorBrush x:Key="SelectionTextBrush" Color="#FFFFFFFF" />
-    <SolidColorBrush x:Key="SelectedItemBackgroundBrush" Color="#1F08866D" />
-    <SolidColorBrush x:Key="SelectedItemTextBrush" Color="#FF08866D" />
-    <SolidColorBrush x:Key="DangerBrush" Color="#FFC93737" />
-    <SolidColorBrush x:Key="WarningBrush" Color="#FFA66800" />
-    <SolidColorBrush x:Key="TokenInputBrush" Color="#FF216BC7" />
-    <SolidColorBrush x:Key="TokenOutputBrush" Color="#FF177859" />
-    <SolidColorBrush x:Key="TokenCacheWriteBrush" Color="#FF9E6B0F" />
-    <SolidColorBrush x:Key="TokenCacheReadBrush" Color="#FF665C9E" />
-    <SolidColorBrush x:Key="TooltipBackgroundBrush" Color="#FFFFFFFF" />
-
     <Style TargetType="Window">
         <Setter Property="FontFamily" Value="Segoe UI Variable Text, Segoe UI" />
         <Setter Property="FontSize" Value="13" />

@@ -17,7 +17,8 @@ public sealed record AppearancePreferences(
     TokenKindSelection SelectedTokenKinds = TokenKindSelection.All,
     TokenValueDisplayMode TokenValueDisplay = TokenValueDisplayMode.Value,
     TokenRange SelectedTokenRange = TokenRange.Today,
-    bool AlwaysOnTop = false)
+    bool AlwaysOnTop = false,
+    string ThemeId = ThemePackageStore.DefaultThemeId)
 {
     public static AppearancePreferences Default { get; } = new(
         AgentId.ClaudeCode,
@@ -27,7 +28,8 @@ public sealed record AppearancePreferences(
         TokenKindSelection.All,
         TokenValueDisplayMode.Value,
         TokenRange.Today,
-        false);
+        false,
+        ThemePackageStore.DefaultThemeId);
 
     public IReadOnlyList<AgentId> DisplayOrder()
     {
@@ -55,7 +57,7 @@ public sealed record AppSettings(
     OnboardingPreferences Onboarding,
     IReadOnlyDictionary<AgentId, UsageSnapshot> LastSnapshots)
 {
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
     public static AppSettings Default { get; } = new(
         CurrentVersion,
@@ -80,15 +82,28 @@ public sealed class AppSettingsStore
     private readonly object _gate = new();
     private AppSettings _current;
 
-    public AppSettingsStore(string? settingsPath = null)
+    public AppSettingsStore(
+        string? settingsPath = null,
+        string? themesDirectory = null)
     {
         SettingsPath = settingsPath ?? DefaultSettingsPath();
+        var fullSettingsPath = Path.GetFullPath(SettingsPath);
+        DataDirectory = Path.GetDirectoryName(fullSettingsPath) ??
+                        throw new InvalidOperationException(
+                            $"Settings path has no parent directory: " +
+                            $"{SettingsPath}");
+        ThemePackages = new ThemePackageStore(
+            themesDirectory ?? Path.Combine(DataDirectory, "Themes"));
         _current = LoadCore();
     }
 
     public event EventHandler? Changed;
 
     public string SettingsPath { get; }
+
+    public string DataDirectory { get; }
+
+    public ThemePackageStore ThemePackages { get; }
 
     /// <summary>
     /// The most recent deserialization or read error. Corrupt/unreadable settings
@@ -391,6 +406,10 @@ public sealed class AppSettingsStore
         var selectedTokenRange = Enum.IsDefined(appearance.SelectedTokenRange)
             ? appearance.SelectedTokenRange
             : AppearancePreferences.Default.SelectedTokenRange;
+        var themeId = ThemePackageStore.IsValidThemeId(appearance.ThemeId)
+            ? appearance.ThemeId
+            : ThemePackageStore.DefaultThemeId;
+
         return new AppearancePreferences(
             primary,
             order,
@@ -399,7 +418,8 @@ public sealed class AppSettingsStore
             selectedTokenKinds,
             tokenValueDisplay,
             selectedTokenRange,
-            appearance.AlwaysOnTop);
+            appearance.AlwaysOnTop,
+            themeId);
     }
 
     private static AppSettings Clone(AppSettings settings) => new(
@@ -412,7 +432,8 @@ public sealed class AppSettingsStore
             settings.Appearance.SelectedTokenKinds,
             settings.Appearance.TokenValueDisplay,
             settings.Appearance.SelectedTokenRange,
-            settings.Appearance.AlwaysOnTop),
+            settings.Appearance.AlwaysOnTop,
+            settings.Appearance.ThemeId),
         new OnboardingPreferences(settings.Onboarding.Completed),
         AsReadOnly(settings.LastSnapshots.ToDictionary(
             pair => pair.Key,

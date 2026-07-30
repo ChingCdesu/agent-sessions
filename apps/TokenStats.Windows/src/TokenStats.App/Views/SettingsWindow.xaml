@@ -83,6 +83,55 @@
                 <StackPanel>
                     <TextBlock FontSize="24" FontWeight="SemiBold" Text="Display" />
 
+                    <TextBlock
+                        Margin="0,22,0,6"
+                        Style="{StaticResource SectionTitle}"
+                        Text="Color theme" />
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <ComboBox
+                            x:Name="ThemeCombo"
+                            MaxWidth="320"
+                            HorizontalAlignment="Stretch"
+                            AutomationProperties.Name="Color theme"
+                            DisplayMemberPath="Name"
+                            SelectedValuePath="Id"
+                            SelectionChanged="ThemeCombo_OnSelectionChanged" />
+                        <StackPanel
+                            Grid.Row="1"
+                            Margin="0,8,0,0"
+                            Orientation="Horizontal">
+                            <Button
+                                AutomationProperties.Name="Reload YAML themes"
+                                Click="ReloadThemes_OnClick"
+                                Content="Reload" />
+                            <Button
+                                Margin="8,0,0,0"
+                                AutomationProperties.Name="Open theme folder"
+                                Click="OpenThemesFolder_OnClick"
+                                Content="Open folder" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock
+                        Margin="0,6,0,0"
+                        Style="{StaticResource SecondaryText}"
+                        Text="Themes are color-only YAML packages. Windows still chooses the light or dark variant automatically, and High Contrast always takes precedence."
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        x:Name="ThemeFolderText"
+                        Margin="0,4,0,0"
+                        Style="{StaticResource SecondaryText}"
+                        TextWrapping="Wrap" />
+                    <TextBlock
+                        x:Name="ThemeErrorText"
+                        Margin="0,4,0,0"
+                        Foreground="{DynamicResource DangerBrush}"
+                        TextWrapping="Wrap"
+                        Visibility="Collapsed" />
+
                     <TextBlock Margin="0,22,0,6" Style="{StaticResource SectionTitle}" Text="Primary subscription" />
                     <ComboBox
                         x:Name="PrimaryAgentCombo"

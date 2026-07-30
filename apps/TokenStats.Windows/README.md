@@ -87,6 +87,37 @@ process exits non-zero on failure, so the script works in CI without a
 test-framework package. `global.json` pins the .NET 8 SDK line and the projects
 pin C# 12 for reproducible builds.
 
+## Color themes
+
+The **Display** Settings page can select color-only YAML theme packages from:
+
+```text
+%LocalAppData%\TokenStats\Themes
+```
+
+On first launch TokenStats writes `default.yaml` there without overwriting an
+existing file. Copy and rename that file to create another theme; the filename
+without `.yaml` is the selection id saved in `settings.json`, so renaming a
+package requires selecting it again. Use **Reload** to rescan edited or newly
+added packages without restarting, or **Open folder** to open the theme folder.
+
+Each package uses `schemaVersion: 1`, a display `name`, and a `colors` mapping
+containing complete `light` and `dark` variants. Both variants must define the
+same 24 semantic color keys shown in `default.yaml`. Values accept quoted
+`#RRGGBB` or WPF-order `#AARRGGBB`; the quotes are required because an
+unquoted `#` begins a YAML comment.
+
+Themes are intentionally limited to colors. The loader accepts nested block
+mappings, comments, and scalar values, and rejects unknown or duplicate keys,
+missing colors, sequences, aliases, tags, flow mappings, block scalars, and
+multiple YAML documents. A malformed package is skipped as a whole and the
+built-in default remains available, so it can never partially replace the
+active palette or prevent the tray app from starting.
+
+The selected package supplies both variants, while Windows continues to choose
+light or dark automatically. Windows High Contrast always overrides package
+colors.
+
 Create portable x64 or ARM64 builds:
 
 ```powershell
@@ -113,8 +144,9 @@ SmartScreen.
 - The flyout, Settings, onboarding, native title bars, controls, and tray menu
   follow the Windows app theme at startup and while the app is running. Windows
   High Contrast colors take precedence over the light and dark palettes.
-- Presentation preferences live under **Display**, not Appearance; theme
-  selection remains automatic and separate.
+- Presentation preferences and the color-theme package picker live under
+  **Display**, not Appearance. Theme-package selection is persisted, while the
+  active light/dark variant continues to follow Windows automatically.
 - Opening the flyout refreshes Usage Windows. At startup the Windows transcript
   reader fully reconciles the persisted Token Odometer range against the
   transcript roots, then keeps debounced `FileSystemWatcher` subscriptions

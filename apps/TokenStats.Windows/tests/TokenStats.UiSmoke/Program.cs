@@ -16,8 +16,38 @@ using TokenStats.Core;
 
 namespace TokenStats.UiSmoke;
 
-internal static class Program
+internal static partial class Program
 {
+    private const string SmokeThemeId = "smoke-custom";
+
+    private static readonly (string YamlKey, string ResourceKey)[] ThemeColorRoles =
+    [
+        ("windowBackground", "WindowBackgroundBrush"),
+        ("cardBackground", "CardBackgroundBrush"),
+        ("subtleBackground", "SubtleBackgroundBrush"),
+        ("controlBackground", "ControlBackgroundBrush"),
+        ("controlHover", "ControlHoverBrush"),
+        ("controlPressed", "ControlPressedBrush"),
+        ("primaryText", "PrimaryTextBrush"),
+        ("secondaryText", "SecondaryTextBrush"),
+        ("disabledText", "DisabledTextBrush"),
+        ("border", "BorderBrush"),
+        ("accent", "AccentBrush"),
+        ("accentForeground", "AccentForegroundBrush"),
+        ("accentSoft", "AccentSoftBrush"),
+        ("selection", "SelectionBrush"),
+        ("selectionText", "SelectionTextBrush"),
+        ("selectedItemBackground", "SelectedItemBackgroundBrush"),
+        ("selectedItemText", "SelectedItemTextBrush"),
+        ("danger", "DangerBrush"),
+        ("warning", "WarningBrush"),
+        ("tokenInput", "TokenInputBrush"),
+        ("tokenOutput", "TokenOutputBrush"),
+        ("tokenCacheWrite", "TokenCacheWriteBrush"),
+        ("tokenCacheRead", "TokenCacheReadBrush"),
+        ("tooltipBackground", "TooltipBackgroundBrush"),
+    ];
+
     [STAThread]
     public static int Main(string[] args)
     {
@@ -37,10 +67,11 @@ internal static class Program
                     "pack://application:,,,/TokenStats;component/Themes/Styles.xaml",
                     UriKind.Absolute),
             });
-            VerifyThemePalettes(application.Resources);
 
             var settings = new AppSettingsStore(
                 Path.Combine(temporary, "settings.json"));
+            VerifyThemePackages(settings, application.Resources);
+            VerifyThemePalettes(application.Resources);
             settings.SaveAppearance(
                 settings.Appearance with
                 {
@@ -53,6 +84,7 @@ internal static class Program
                         TokenValueDisplayMode.ValueAndPercentage,
                     SelectedTokenRange = TokenRange.ThirtyDays,
                     AlwaysOnTop = true,
+                    ThemeId = SmokeThemeId,
                 });
             var reloadedSettings = new AppSettingsStore(settings.SettingsPath);
             if (reloadedSettings.Appearance.GaugeStyle != GaugeStyle.Ring ||
@@ -65,10 +97,11 @@ internal static class Program
                 reloadedSettings.Appearance.SelectedTokenRange !=
                     TokenRange.ThirtyDays ||
                 !reloadedSettings.Appearance.AlwaysOnTop ||
+                reloadedSettings.Appearance.ThemeId != SmokeThemeId ||
                 reloadedSettings.Current.Version != AppSettings.CurrentVersion)
             {
                 throw new InvalidOperationException(
-                    "Windows v3 display settings did not survive an ISO-JSON round trip.");
+                    "Windows v4 display settings did not survive an ISO-JSON round trip.");
             }
 
             var malformedSettingsPath = Path.Combine(
@@ -113,10 +146,12 @@ internal static class Program
                     TokenValueDisplayMode.Value ||
                 sanitizedSettings.Appearance.SelectedTokenRange !=
                     TokenRange.Today ||
-                sanitizedSettings.Appearance.AlwaysOnTop)
+                sanitizedSettings.Appearance.AlwaysOnTop ||
+                sanitizedSettings.Appearance.ThemeId !=
+                    ThemePackageStore.DefaultThemeId)
             {
                 throw new InvalidOperationException(
-                    "Legacy settings did not receive safe v3 display defaults.");
+                    "Legacy settings did not receive safe v4 display defaults.");
             }
 
             settings.SaveAppearance(
@@ -305,7 +340,7 @@ internal static class Program
             coordinator.DisposeAsync().AsTask().GetAwaiter().GetResult();
             application.Shutdown();
             Console.WriteLine(
-                "PASS WPF windows loaded, switched themes at runtime, " +
+                "PASS WPF windows loaded YAML themes, switched them at runtime, " +
                 "and completed Light/Dark layout.");
             return 0;
         }
@@ -450,13 +485,21 @@ internal static class Program
     private static void VerifyThemePalette(
         ResourceDictionary resources,
         WindowsAppTheme theme,
-        IReadOnlyDictionary<string, Color> expected)
+        IReadOnlyDictionary<string, Color> expected,
+        ThemePackage? package = null)
     {
-        WindowsThemeService.Apply(resources, theme);
+        package ??= ThemePackageStore.BuiltInDefault;
+        WindowsThemeService.Apply(resources, theme, package);
         if (WindowsThemeService.CurrentTheme != theme)
         {
             throw new InvalidOperationException(
                 $"The active Windows theme was not updated to {theme}.");
+        }
+
+        if (WindowsThemeService.CurrentThemePackageId != package.Id)
+        {
+            throw new InvalidOperationException(
+                $"The active theme package was not updated to {package.Id}.");
         }
 
         foreach (var (key, expectedColor) in expected)
@@ -1940,6 +1983,87 @@ internal static class Program
             throw new InvalidOperationException(
                 "The user-facing Settings pane was not renamed to Display.");
         }
+
+        var themeCombo = FindNamed<ComboBox>(settingsWindow, "ThemeCombo");
+        var themeItems = themeCombo.Items.Cast<ThemePackageInfo>().ToArray();
+        var defaultTheme = themeItems.SingleOrDefault(theme =>
+            theme.Id == ThemePackageStore.DefaultThemeId);
+        var customTheme = themeItems.SingleOrDefault(theme =>
+            theme.Id == SmokeThemeId);
+        if (!themeCombo.Focusable ||
+            !themeCombo.IsEnabled ||
+            AutomationProperties.GetName(themeCombo) != "Color theme" ||
+            themeCombo.DisplayMemberPath != nameof(ThemePackageInfo.Name) ||
+            themeCombo.SelectedValuePath != nameof(ThemePackageInfo.Id) ||
+            defaultTheme is null ||
+            customTheme is null ||
+            customTheme.Name != "Smoke Custom" ||
+            themeCombo.SelectedValue as string != settings.Appearance.ThemeId)
+        {
+            throw new InvalidOperationException(
+                "The Display pane did not expose usable YAML theme choices.");
+        }
+
+        themeCombo.SelectedValue = SmokeThemeId;
+        PumpDispatcher(settingsWindow.Dispatcher);
+        var persistedTheme = new AppSettingsStore(settings.SettingsPath)
+            .Appearance.ThemeId;
+        if (settings.Appearance.ThemeId != SmokeThemeId ||
+            persistedTheme != SmokeThemeId ||
+            WindowsThemeService.CurrentThemePackageId != SmokeThemeId)
+        {
+            throw new InvalidOperationException(
+                "Selecting a YAML theme was not applied and persisted immediately.");
+        }
+
+        var applicationResources =
+            System.Windows.Application.Current.Resources;
+        if (applicationResources["AccentBrush"] is not Brush customAccent)
+        {
+            throw new InvalidOperationException(
+                "The selected YAML theme did not publish an AccentBrush.");
+        }
+
+        var expectedCustomAccent = WindowsThemeService.CurrentTheme switch
+        {
+            WindowsAppTheme.HighContrast => SystemColors.HighlightColor,
+            WindowsAppTheme.Dark => SmokeThemeColors(dark: true)["AccentBrush"],
+            _ => SmokeThemeColors(dark: false)["AccentBrush"],
+        };
+        AssertBrushColor(
+            customAccent,
+            expectedCustomAccent,
+            "Selected YAML theme accent");
+
+        themeCombo.SelectedValue = ThemePackageStore.DefaultThemeId;
+        PumpDispatcher(settingsWindow.Dispatcher);
+        persistedTheme = new AppSettingsStore(settings.SettingsPath)
+            .Appearance.ThemeId;
+        if (settings.Appearance.ThemeId != ThemePackageStore.DefaultThemeId ||
+            persistedTheme != ThemePackageStore.DefaultThemeId ||
+            WindowsThemeService.CurrentThemePackageId !=
+                ThemePackageStore.DefaultThemeId)
+        {
+            throw new InvalidOperationException(
+                "Restoring the default YAML theme was not applied and persisted.");
+        }
+
+        if (applicationResources["AccentBrush"] is not Brush defaultAccent)
+        {
+            throw new InvalidOperationException(
+                "The restored default theme did not publish an AccentBrush.");
+        }
+
+        var expectedDefaultAccent = WindowsThemeService.CurrentTheme switch
+        {
+            WindowsAppTheme.HighContrast => SystemColors.HighlightColor,
+            WindowsAppTheme.Dark => Rgb(0x45, 0xD0, 0xAD),
+            _ => Rgb(0x08, 0x86, 0x6D),
+        };
+        AssertBrushColor(
+            defaultAccent,
+            expectedDefaultAccent,
+            "Restored default YAML theme accent");
 
         var value =
             FindNamed<RadioButton>(settingsWindow, "TokenValueMode");
